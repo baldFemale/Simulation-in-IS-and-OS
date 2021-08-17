@@ -6,4 +6,4 @@ Simulation methodology in Information system, organization science, etc.
 * 22/3/2020 -- update [replication](https://github.com/baldFemale/Simulation-in-IS-and-OS/blob/master/Organization%20time%20perspective%20and%20competitiveness%20.ipynb
 ) for [Sticky Aspirations: Organizational Time Perspective and Competitiveness](https://pubsonline.informs.org/doi/10.1287/orsc.13.1.1.540) by Greve on Organization Science in 2002.
 * 25/8/2020 -- upload working paper whentoTeamup, an NK-based simulation model to investigate team formation on crowdsourcing contest platforms
-* 17/8/2021 -- upload [replicaton]() for [Exploration and Exploitation in Organization Learning](https://pubsonline.informs.org/doi/abs/10.1287/orsc.2.1.71) by James G March on Organization Science in 1991 and extension for volitional learning 
+* 17/8/2021 -- upload [replicaton](https://github.com/baldFemale/Simulation-in-IS-and-OS/blob/master/volitional%20learning.ipynb) for [Exploration and Exploitation in Organization Learning](https://pubsonline.informs.org/doi/abs/10.1287/orsc.2.1.71) by James G March on Organization Science in 1991 and extension for volitional learning 
