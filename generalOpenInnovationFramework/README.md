@@ -1,6 +1,6 @@
 A general framework for open innovation 
 * from firms to crowd, bridged by community-based innovation 
-  *  crowd 
+  *  crowd   
     *  (Re)combination via teaming 
     *  Generalist vs. Specialist 
 
