@@ -22,3 +22,12 @@ def solutuionIntegration(stateA, stateB, decisionA, decisionB, landscape):
                 if cur in decisionA:
                     result[cur] = stateA[cur]
     return result
+
+def numberToBase(n, b):
+    if n == 0:
+        return "0"
+    digits = []
+    while n:
+        digits.append(int(n % b))
+        n //= b
+    return "".join([str(cur) for cur in digits[::-1]])
