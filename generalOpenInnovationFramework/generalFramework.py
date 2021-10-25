@@ -1,5 +1,11 @@
 from LandScape import *
 
+"""
+The probability based model doesn't work 
+Manually specify time interval 
+Even for a simple refinement there could be many variation in its duration, location (i.e., at the beginning or at the end) 
+"""
+
 
 class Firm:
 
@@ -70,7 +76,7 @@ class Agent:
 class Industry:
 
     def __init__(self, N, firm_knowledge, agent_knowledge, agent_num, landscape,
-                 crowd2firm_probability, firm2crowd_probability
+                 time_interval
                  ):
 
         self.firm = Firm(N, firm_knowledge, landscape)
@@ -78,48 +84,48 @@ class Industry:
         for agent in self.agents:
             agent.state = list(self.firm.state)
 
-        self.crowd2firm_probability = crowd2firm_probability
-        self.firm2crowd_probability = firm2crowd_probability
-
-        # tag takes 0 if firm does search else 1
+        self.time_interval = time_interval
         self.tag = 0
-        self.firm_timestamp = [0]
-        self.crowd_timestamp = []
 
-    def adaptation(self, step, last_period=False):
+    def get_index(self, step):
 
-        if self.tag==0:
+        if step+1 > self.time_interval[-1]:
+            return -1
+
+        for time_index, time in enumerate(self.time_interval):
+
+            if step+1 <= time:
+                return time_index
+
+    def adaptation(self, step, ):
+
+        index = self.get_index(step)
+
+        if index % 2 == 0:
             self.firm.independent_search()
-
-            if np.random.uniform(0, 1)<self.firm2crowd_probability:
-                self.tag = 1
+            next_index = self.get_index(step+1)
+            if next_index != -1 and next_index % 2 == 1:
                 for agent in self.agents:
                     agent.state = list(self.firm.state)
-                if not last_period:
-                    self.crowd_timestamp.append(step+1)
         else:
             for agent in self.agents:
                 agent.independent_search()
-
-            if np.random.uniform(0, 1)<self.crowd2firm_probability or last_period:
-                self.tag = 0
+            next_index = self.get_index(step+1)
+            if next_index != -1 and next_index % 2 == 0:
                 self.firm.pickup([agent.state for agent in self.agents])
-                self.firm_timestamp.append(step+1)
+            elif next_index == -1:
+                self.firm.pickup([agent.state for agent in self.agents])
 
 
 def simulation(N, k, land_num, agent_num, period, firm_knowledge, agent_knowledge,
-               crowd2firm_probability, firm2crowd_probability
+               time_interval
                ):
 
     ress_fitness = []
-    ress_firm_interval = []
-    ress_crowd_interval = []
 
     for repeat in range(land_num):
 
         res_fitness = []
-        res_firm_interval = []
-        res_crowd_interval = []
 
         np.random.seed(None)
 
@@ -127,31 +133,16 @@ def simulation(N, k, land_num, agent_num, period, firm_knowledge, agent_knowledg
         landscape.initialize()
 
         industry = Industry(
-            N, firm_knowledge, agent_knowledge, agent_num, landscape, crowd2firm_probability,
-            firm2crowd_probability
+            N, firm_knowledge, agent_knowledge, agent_num, landscape, time_interval
         )
 
         for step in range(period):
-            industry.adaptation(step, step==period-1)
+            industry.adaptation(step)
             res_fitness.append(industry.firm.landscape.query_fitness(industry.firm.state))
 
-        cur = 0
-
-        while cur<len(industry.firm_timestamp):
-
-            if cur >= len(industry.crowd_timestamp):
-                res_firm_interval.append(30-industry.firm_timestamp[cur])
-                break
-            else:
-                res_firm_interval.append(industry.crowd_timestamp[cur]-industry.firm_timestamp[cur])
-                res_crowd_interval.append(industry.firm_timestamp[cur+1]-industry.crowd_timestamp[cur])
-                cur += 1
-
         ress_fitness.append(res_fitness)
-        ress_crowd_interval.append(np.mean(res_crowd_interval) if len(res_crowd_interval) > 0 else -1)
-        ress_firm_interval.append(np.mean(res_firm_interval) if len(res_firm_interval) > 0 else -1)
 
-    return ress_fitness, ress_crowd_interval, ress_firm_interval
+    return ress_fitness
 
 
 
