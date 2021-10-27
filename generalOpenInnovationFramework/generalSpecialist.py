@@ -1,6 +1,8 @@
 from LandScape import *
 from tools import *
 
+# this might be ok, the analysis code is wrong
+
 
 class Agent:
 
@@ -106,11 +108,12 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
                         teams[rank[j]] = None
 
                         integrated_solution = solutuionIntegration(
-                            agents[i].state, agents[j].state, agents[i].decision_space, agents[j].decision_space, landscape
+                            agents[rank[i]].state, agents[rank[j]].state, agents[rank[i]].decision_space,
+                            agents[rank[j]].decision_space, landscape
                         )
 
-                        agents[i].state = list(integrated_solution)
-                        agents[j].state = list(integrated_solution)
+                        agents[rank[i]].state = list(integrated_solution)
+                        agents[rank[j]].state = list(integrated_solution)
                         break
 
             for i in range(agentNum):
@@ -179,7 +182,7 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
                     if landscape.query_cog_fitness(
                         B_temp_state, agents[i].knowledge_space
                     ) > landscape.query_cog_fitness(
-                        agents[teams[i]].state, agents[i].knowledge_space
+                        temp_state, agents[i].knowledge_space
                     ):
                         pass
 

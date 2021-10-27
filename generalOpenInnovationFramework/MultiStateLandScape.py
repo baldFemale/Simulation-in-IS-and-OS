@@ -1,8 +1,10 @@
 import numpy as np
 from collections import defaultdict
 from tools import *
+from itertools import product
 
-class LandScape():
+
+class LandScape:
 
     def __init__(self, N, K, K_within, K_between, state_num=2):
         self.N = N
@@ -120,8 +122,46 @@ class LandScape():
 
             for j in range(remain_length):
                 temp_state[remainder[j]] = int(bit[j])
-            res+=self.query_fitness(temp_state)
+            res += self.query_fitness(temp_state)
         res = 1.0*res/pow(self.state_num, remain_length)
         self.cog_cache[regular_expression] = res
 
         return res
+
+    def query_cog_fitness_gst(self, state, general_space, special_space, bit_difference=1):
+
+        alternative = []
+
+        for cur in range(self.N):
+            if cur in special_space:
+                continue
+            elif cur in general_space:
+                temp = []
+                for i in range(pow(2, bit_difference)):
+                    bit_string = bin(i)
+                    bit_string = "0"*(bit_difference-len(bit_string)) + bit_string
+                    bit_string = str(state[i]) + bit_string
+                    temp.append(int(bit_string, 2))
+                alternative.append(list(temp))
+            else:
+                temp = []
+                for i in range(self.state_num):
+                    temp.append(i)
+                alternative.append(list(temp))
+
+        res = 0
+        alternative = list(product(*alternative))
+
+        for alter in alternative:
+            index = 0
+            temp_state = list(state)
+            for cur in range(self.N):
+                if cur in special_space:
+                    continue
+                else:
+                    temp_state[cur] = alter[index]
+                    index += 1
+            res += self.query_fitness(temp_state)
+        return res/len(alternative)
+
+

@@ -1,6 +1,12 @@
 from MultiStateLandScape import *
 from tools import *
 
+# the results might be determined by the way we calculate cognition
+# we overvalue generalist
+# I want to make it a fair comparison & learning from specialist and generalist should be different -> need to specify
+# bit different in MultiStateLandScape class
+# target -> specialist works well in complex problems
+
 
 class Agent:
 
@@ -12,6 +18,17 @@ class Agent:
         self.decision_space = np.random.choice(self.N, knowledge_num, replace=False).tolist()
         self.knowledge_space = list(self.decision_space)
         self.specialist_decision_space = np.random.choice(self.decision_space, specialist_num, replace=False).tolist()
+        self.specialist_knowledge_space = list(self.specialist_decision_space)
+        self.generalist_knowledge_space = [
+            cur for cur in self.decision_space if cur not in self.specialist_knowledge_space
+        ]
+
+        self.generalist_map_dic = defaultdict(lambda: defaultdict(int))
+
+        for cur in self.generalist_knowledge_space:
+            self.generalist_map_dic[cur][0] = np.random.choice([0, 1])
+            self.generalist_map_dic[cur][1] = np.random.choice([2, 3])
+
         self.lr = lr
 
         self.landscape = landscape
@@ -24,23 +41,36 @@ class Agent:
 
         c = np.random.choice(self.decision_space)
 
-        if c in self.specialist_decision_space:
+        if c in self.specialist_knowledge_space:
             current_state = temp_state[c]
-            new_state = np.random.choice([cur for cur in range(self.state_num) if cur!=current_state])
+            new_state = np.random.choice([cur for cur in range(self.state_num) if cur != current_state])
             temp_state[c] = new_state
 
         else:
-            temp_state[c] = temp_state[c] ^ 1
+            focal_flag = temp_state[c]//2
+            focal_flag = focal_flag^1
+            temp_state[c] = self.generalist_map_dic[c][focal_flag]
 
-        if self.landscape.query_cog_fitness(
-            temp_state, self.knowledge_space,
+        cognitive_state = self.change_state_to_cog_state(self.state)
+        cognitive_temp_state = self.change_state_to_cog_state(temp_state)
+
+        if self.landscape.query_cog_fitness_gst(
+            cognitive_state, self.generalist_knowledge_space, self.specialist_knowledge_space
         ) > self.landscape.query_cog_fitness(
-            self.state, self.knowledge_space,
+            cognitive_temp_state, self.generalist_knowledge_space, self.specialist_knowledge_space
         ):
+            return list(self.state)
+        else:
             return list(temp_state)
 
-        else:
-            return list(self.state)
+    def change_state_to_cog_state(self, state):
+        temp_state = []
+        for cur in range(len(state)):
+            if cur in self.generalist_knowledge_space:
+                temp_state.append(state[cur]//2)
+            else:
+                temp_state.append(state[cur])
+        return temp_state
 
     def learn(self, target_):
         pass
@@ -78,9 +108,12 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
             if cur < agentNum//3:
                 agents.append(Agent(N, knowledge_num[0], specialist_num[0], lr, landscape, state_num))
             elif cur < 2*agentNum//3:
-                agents.append(Agent(N, knowledge_num[0], specialist_num[0], lr, landscape, state_num))
+                agents.append(Agent(N, knowledge_num[1], specialist_num[1], lr, landscape, state_num))
             else:
-                agents.append(Agent(N, knowledge_num[0], specialist_num[0], lr, landscape, state_num))
+                agents.append(Agent(N, knowledge_num[2], specialist_num[2], lr, landscape, state_num))
+
+        # print([agents[i].decision_space for i in range(agentNum)])
+        # print([agents[i].specialist_decision_space for i in range(agentNum)])
 
         teams = {i: i for i in range(agentNum)}
 
@@ -102,11 +135,11 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
                         teams[rank[j]] = None
 
                         integrated_solution = solutuionIntegration(
-                            agents[i].state, agents[j].state, agents[i].decision_space, agents[j].decision_space, landscape
+                            agents[rank[i]].state, agents[rank[j]].state, agents[rank[i]].decision_space, agents[rank[j]].decision_space, landscape
                         )
 
-                        agents[i].state = list(integrated_solution)
-                        agents[j].state = list(integrated_solution)
+                        agents[rank[i]].state = list(integrated_solution)
+                        agents[rank[j]].state = list(integrated_solution)
                         break
 
             for i in range(agentNum):
@@ -137,9 +170,31 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
                         ):
 
                             new_knowledge_A = np.random.choice(
-                                [cur for cur in agents[teams[i]].decision_space if cur not in agents[i].knowledge_space]
+                                [cur for cur in agents[teams[i]].decision_space]
                             )
-                            agents[i].knowledge_space.append(new_knowledge_A)
+
+                            if new_knowledge_A in agents[teams[i]].generalist_knowledge_space:
+                                if (
+                                        new_knowledge_A not in agents[i].specialist_knowledge_space
+                                ) and (
+                                        new_knowledge_A not in agents[i].generalist_knowledge_space
+                                ):
+                                    agents[i].generalist_knowledge_space.append(new_knowledge_A)
+                                    agents[i].generalist_map_dic[new_knowledge_A][0] = \
+                                        agents[teams[i]].generalist_map_dic[new_knowledge_A][0]
+                                    agents[i].generalist_map_dic[new_knowledge_A][1] = \
+                                        agents[teams[i]].generalist_map_dic[new_knowledge_A][1]
+                            elif new_knowledge_A in agents[teams[i]].specialist_knowledge_space:
+                                if new_knowledge_A not in agents[i].specialist_knowledge_space:
+                                    if new_knowledge_A not in agents[i].generalist_knowledge_space:
+                                        agents[i].specialist_knowledge_space.append(new_knowledge_A)
+                                    else:
+                                        focal_index = agents[i].generalist_knowledge_space.index(new_knowledge_A)
+                                        agents[i].generalist_knowledge_space.pop(focal_index)
+                                        agents[i].specialist_knowledge_space.append(new_knowledge_A)
+
+                            if new_knowledge_A not in agents[i].knowledge_space:
+                                agents[i].knowledge_space.append(new_knowledge_A)
 
                     if np.random.uniform(0, 1) < p:
 
@@ -150,18 +205,47 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
                         ):
 
                             new_knowledge_B = np.random.choice(
-                                [cur for cur in agents[i].decision_space if cur not in agents[teams[i]].knowledge_space]
+                                [cur for cur in agents[i].decision_space]
                             )
-                            agents[teams[i]].knowledge_space.append(new_knowledge_B)
+
+                            if new_knowledge_B in agents[i].generalist_knowledge_space:
+                                if (
+                                        new_knowledge_B not in agents[teams[i]].specialist_knowledge_space
+                                ) and (
+                                        new_knowledge_B not in agents[teams[i]].generalist_knowledge_space
+                                ):
+                                    agents[teams[i]].generalist_knowledge_space.append(new_knowledge_B)
+                                    agents[teams[i]].generalist_map_dic[new_knowledge_B][0] = \
+                                        agents[i].generalist_map_dic[new_knowledge_B][0]
+                                    agents[teams[i]].generalist_map_dic[new_knowledge_B][1] = \
+                                        agents[i].generalist_map_dic[new_knowledge_B][1]
+                            elif new_knowledge_B in agents[i].specialist_knowledge_space:
+                                if new_knowledge_B not in agents[teams[i]].specialist_knowledge_space:
+                                    if new_knowledge_B not in agents[teams[i]].generalist_knowledge_space:
+                                        agents[teams[i]].specialist_knowledge_space.append(new_knowledge_B)
+                                    else:
+                                        focal_index = agents[teams[i]].generalist_knowledge_space.index(new_knowledge_B)
+                                        agents[teams[i]].generalist_knowledge_space.pop(focal_index)
+                                        agents[teams[i]].specialist_knowledge_space.append(new_knowledge_B)
+
+                            if new_knowledge_B not in agents[teams[i]].knowledge_space:
+                                agents[teams[i]].knowledge_space.append(new_knowledge_B)
 
                     # A's proposal
                     temp_state = agents[i].independent_search()
 
+                    cognitive_temp_state = agents[teams[i]].change_state_to_cog_state(temp_state)
+                    cognitive_state = agents[teams[i]].change_state_to_cog_state(agents[teams[i]].state)
+
                     # B's evaluation
-                    if landscape.query_cog_fitness(
-                            temp_state, agents[teams[i]].knowledge_space
-                    ) > landscape.query_cog_fitness(
-                        agents[i].state, agents[teams[i]].knowledge_space
+                    if landscape.query_cog_fitness_gst(
+                        cognitive_temp_state,
+                        agents[teams[i]].generalist_knowledge_space,
+                        agents[teams[i]].specialist_knowledge_space,
+                    ) > landscape.query_cog_fitness_gst(
+                        cognitive_state,
+                        agents[teams[i]].generalist_knowledge_space,
+                        agents[teams[i]].specialist_knowledge_space,
                     ):
                         pass
                     else:
@@ -172,10 +256,12 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
                     B_temp_state = agents[teams[i]].independent_search()
 
                     # A's evaluation
-                    if landscape.query_cog_fitness(
-                        B_temp_state, agents[i].knowledge_space
-                    ) > landscape.query_cog_fitness(
-                        agents[teams[i]].state, agents[i].knowledge_space
+                    cognitive_temp_state = agents[i].change_state_to_cog_state(B_temp_state)
+                    cognitive_state = agents[i].change_state_to_cog_state(temp_state)
+                    if landscape.query_cog_fitness_gst(
+                        cognitive_temp_state, agents[i].generalist_knowledge_space, agents[i].specialist_knowledge_space
+                    ) > landscape.query_cog_fitness_gst(
+                        cognitive_state, agents[i].generalist_knowledge_space, agents[i].specialist_knowledge_space
                     ):
                         pass
 
@@ -186,6 +272,10 @@ def simulation(return_dic, idx, N, k, land_num, period, agentNum, teamup, teamup
                     agents[teams[i]].state = list(B_temp_state)
 
             tempFitness = [landscape.query_fitness(agents[i].state) for i in range(agentNum)]
+
+            print(np.mean(tempFitness[:100]))
+            print(np.mean(tempFitness[100:200]))
+            print(np.mean(tempFitness[200:300]))
 
             res_fitness.append(tempFitness)
 
